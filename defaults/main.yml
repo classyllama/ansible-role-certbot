@@ -6,7 +6,7 @@ certbot_version: master
 # when enabling this, be aware that when certbot-auto is run via cron it will (by default) self-update, breaking this
 certbot_keep_updated: no
 
-# certbot install location
+# certbot install location (old)
 certbot_dir: /opt/certbot
 
 # location of nginx binary (this is different on older versions of *nix)

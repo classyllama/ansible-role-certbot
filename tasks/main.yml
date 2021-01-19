@@ -1,15 +1,58 @@
 ---
-- name: install certbot
-  git:
-    repo: "{{ certbot_repo }}"
-    dest: "{{ certbot_dir }}"
-    version: "{{ certbot_version }}"
-    update: "{{ certbot_keep_updated }}"
-
-- name: make certbot-auto executable
+- name: remove certbot-auto if present
   file:
-    path: "{{ certbot_dir }}/certbot-auto"
-    mode: 0755
+    path: "{{ certbot_dir }}"
+    state: absent
+
+- name: remove old certbot auto-renew cron
+  tags: crontab
+  cron:
+    name: certbot_renew
+    job: "{{ certbot_dir }}/certbot-auto renew >> {{ certbot_logdir }}/certbot-renew.log"
+    user: root
+    minute: "30"
+    hour: "2"
+    weekday: "1"
+    state: absent
+
+- name: remove old certbot auto-renew nginx reload
+  tags: crontab
+  cron:
+    name: certbot_renew_reload_nginx
+    job: "{{ certbot_nginx_bin }} -s reload"
+    user: root
+    minute: "35"
+    hour: "2"
+    weekday: "1"
+    state: absent
+
+- name: Ensure snapd is installed.
+  package:
+    name: snapd
+    state: present
+
+- name: Ensure snapd is enabled.
+  systemd:
+    name: snapd.socket
+    enabled: true
+    state: started
+
+- name: Enable classic snap support.
+  file:
+    src: /var/lib/snapd/snap
+    dest: /snap
+    state: link
+
+- name: Install certbot via snap.
+  snap:
+    name: certbot
+    classic: true
+
+- name: Symlink certbot into place.
+  file:
+    src: /snap/bin/certbot
+    dest: /usr/bin/certbot
+    state: link
 
 - name: create certbot webroot
   file: path={{ certbot_webroot_path }} state=directory
@@ -38,35 +81,9 @@
   service: name=nginx state=reloaded
   when: configure_result is changed
 
-- name: configure certbot auto-renew cron
-  tags: crontab
-  cron:
-    name: certbot_renew
-    job: "{{ certbot_dir }}/certbot-auto renew >> {{ certbot_logdir }}/certbot-renew.log"
-    user: root
-    minute: 30
-    hour: 2
-    weekday: 1
-
-- name: configure certbot auto-renew nginx reload
-  tags: crontab
-  cron:
-    name: certbot_renew_reload_nginx
-    job: "{{ certbot_nginx_bin }} -s reload"
-    user: root
-    minute: 35
-    hour: 2
-    weekday: 1
-
-- name: install certbot dependencies
-  command: "{{ certbot_dir }}/certbot-auto --noninteractive --os-packages-only"
-  register: install_result
-  when: certbot_domains and certbot_email and certbot_generate
-  changed_when: install_result.stdout != 'OS packages installed.'
-
 - name: generate certificate files
   command: >
-    {{ certbot_dir }}/certbot-auto certonly
+    /usr/bin/certbot certonly
     --agree-tos
     --noninteractive
     --webroot
