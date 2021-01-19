@@ -2,7 +2,7 @@
 
 Installs Certbot (Let's Encrypt) for RHEL/CentOS with Nginx.
 
-Also configures root crontab entries for auto-renew.
+Auto-renew is handled by a snap timer. View with `systemctl list-timers` and test with `certbot renew --dry-run`.
 
 ## Requirements
 
